@@ -1,0 +1,97 @@
+# Zenkai Media
+
+A free personal tracker for films, shows, anime, manga, books, comics, music and YouTube, in one place.
+
+You keep a shelf of what you're watching, reading and listening to, log your progress, and find out where to watch, read or listen to something from official sources. It runs in the browser, works on phones and computers, and can be added to a phone's home screen.
+
+Version: **Batch 12** (shown in Settings → About and credits).
+
+## What it does
+
+- **Search everything at once.** One search box covers films, shows, anime, manga, manhwa, light novels, books, comics and music, and labels each result with its type.
+- **Your shelf.** Add titles, set a status (planning, in progress, finished, dropped), log episodes and chapters, rate, write notes, tag and set goals.
+- **Where to watch.** For films and shows, streaming, rent, buy and free options for your country (data from TMDB, powered by JustWatch). If a title has no data for your country, the app says so rather than showing another country's options as yours. Anime pages show the official streaming links AniList has.
+- **Where to read.** On manga, manhwa, manhua and light-novel pages: official reading sites, publishers and shops from MangaBaka, each with its language, an access label and when the link was last checked. Unofficial sites are left out, and "Access not confirmed" is shown whenever a source doesn't say.
+- **Artwork tab.** Posters, backgrounds, banners, clear logos and wallpapers for each title, plus a "Fan art from fanart.tv" chip made by that site's community when `FANART_KEY` is set. Pictures load from their source with credit and a link, and aren't saved here.
+- **Openings, endings and soundtracks.** Anime openings and endings (AnimeThemes) and film and anime soundtracks, with 30-second previews. A song page links back to its anime and shows the same song on other music apps (Odesli).
+- **Free things to read and hear.** Public-domain books (Project Gutenberg) with a reader that can read aloud, free audiobooks (LibriVox), and public-domain comics (Internet Archive), which open in the comic reader.
+- **Book pages laid out like a book jacket.** The cover with Read and Library buttons on the left; the genre, author and year, a large serif title and the summary with a drop cap on the right.
+- **Reader themes and typography.** Paper, Sepia, Slate, Night, Contrast or your own colours; Literata, Fraunces, Inter, a classic serif or an easy-to-read face; weight, size, line, word, letter and paragraph spacing, and Book, None or Indent paragraphs. Chapter marks show on the page slider.
+- **Comic reader.** Single page, two pages side by side (wide pages stand alone), or a long strip; comic or manga (right-to-left) order; fit the page, fit the width or full size; a strip of every page; a loupe to magnify; bookmarks; keyboard, tap and swipe; it remembers your page.
+- **Volume view for manga.** Every volume with its cover and chapter range (from MangaDex), grouped in tens, with the volumes you've read marked. Tap one to mark it read, see its chapters, or open your own copy.
+- **Your files.** Add CBZ or CBR comics, a folder of page pictures, EPUB, MOBI, AZW or TXT books, PDFs, music and video you already have. They open in the comic reader, the book reader or a player, and are kept only in that browser on that device, never uploaded. A manga volume named like "Title v02" shows as "on this device" in that series' volume view.
+- **Cinematic loading screens.** The backdrop, the title and a thin progress line while a trailer, comic or book opens. Tap to skip, or turn them off in Settings → Look.
+- **Trailers.** Trailers that are checked to play in your country, hover trailers, and a small floating player.
+- **YouTube page.** A TV-style page for channels, trending and search. Videos play from YouTube itself.
+- **Music.** Albums, songs, charts, previews and lyrics, plus calm background music scenes or your own songs (kept only in your browser).
+- **Lists, sharing and gifts.** Share a list as a link or a picture card, or wrap a list as a gift with a letter, stickers, an effect and an optional lock.
+- **Calendar.** A calendar feed phones can subscribe to, with new episodes from your list.
+- **Little touches.** Keyboard clicks while typing, soft taps, themes, English and French, and offline opening of the app itself.
+
+## Where your data lives
+
+Everything you save (your shelf, notes, settings, your own songs and Your files) stays in your own browser. There are no accounts yet, so clearing your browser data erases it. Use **Settings → Your data** to make a backup and restore it. Backups never include API keys.
+
+## How it's built
+
+- `index.html` is the whole app: plain HTML, CSS and JavaScript, no build step.
+- `manifest.webmanifest`, `sw.js` and the three `icon-*.png` files let people add the app to a phone's home screen and open it offline.
+- `netlify/functions/` holds small server helpers. Each one talks to a single service, with fixed paths, so none of them can be used to fetch arbitrary addresses. API keys live only on the server and never reach the browser.
+- `vendor/` holds the RAR reader used to convert CBR comics (`unrar.js`, `unrar.wasm` and its licence).
+- `docs/` holds the plan and the setup guide:
+  - `docs/SETUP-AND-HANDOVER.md`: step by step, from creating the accounts to a working site.
+  - `docs/discovery-plan.md`: what already existed, which projects and APIs were checked, what was built, and what isn't verified.
+
+## Keys (Netlify → Project configuration → Environment variables)
+
+Never put keys in this repository.
+
+| Variable | Needed for | Required |
+| --- | --- | --- |
+| `TMDB_KEY` | Films, shows, episode summaries, where to watch | Yes |
+| `YOUTUBE_KEY` | YouTube rows, search and trailer checks | Optional |
+| `FANART_KEY` | Banners, clear logos, clear art and fan art from fanart.tv | Optional |
+| `COMICVINE_KEY` | Comics: new issues, series, creators | Optional |
+
+No key is needed for AniList, MangaDex, Open Library, the Internet Archive, Project Gutenberg, Apple Music search, LibriVox, MangaBaka, AnimeThemes, Odesli, Wallhaven or Fandom.
+
+## Helpers
+
+| File | What it does |
+| --- | --- |
+| `tmdb.mjs` | Films and shows (needs `TMDB_KEY`) |
+| `youtube.mjs` | YouTube rows and search, and checking a trailer plays in your country (needs `YOUTUBE_KEY`) |
+| `fanart.mjs` | Banners, clear logos, clear art and fan art from fanart.tv (needs `FANART_KEY`) |
+| `comicvine.mjs` | Comic issues and series (needs `COMICVINE_KEY`) |
+| `charts.mjs`, `mangadex.mjs`, `gutenberg.mjs` | Music charts, manga chapters, free books |
+| `calendar.mjs` | The calendar feed: new episodes from your list (uses `TMDB_KEY` for shows if it's there) |
+| `wallhaven.mjs` | Wallpapers and fan art, safe-for-work only |
+| `wiki.mjs` | Character and story details from the show's fan wiki on Fandom |
+| `archive.mjs` | Free public-domain comics from the Internet Archive, and their pages for the comic reader (it checks each comic is public domain first) |
+| `librivox.mjs` | Free audiobooks read by LibriVox volunteers, with their chapters |
+| `ost.mjs` | The opening or soundtrack of an anime or film, with Apple Music's 30-second preview |
+| `where.mjs` | Where to read (MangaBaka's official links, piracy links dropped), anime openings and endings (AnimeThemes), and the same song on other music apps (Odesli). No keys |
+| `img.mjs` | Fetches cover pictures from known cover sites so share cards can be saved with real covers |
+
+## Rules this project keeps
+
+- Official and legal sources only. No pirate or unofficial streaming servers, no paywall or CAPTCHA bypassing, no scraping of protected pages, and no rehosting of copyrighted media.
+- Availability is only shown for the country it was checked for. Unconfirmed information is labelled as unconfirmed.
+- No adult-content sources.
+- Credit and links are kept for TMDB and JustWatch, AniList, MangaBaka, AnimeThemes and the other data sources.
+
+## What isn't built in, on purpose
+
+- Streaming and file-host servers (UpCloud, Vidmoly, Videasy, Vidsrc, Vidfast, VOE, Uqload, Streamtape and similar) host copies without the rights to them, so they aren't connected.
+- Downloading YouTube videos is against YouTube's terms. The YouTube page plays videos from YouTube itself instead.
+- Tachiyomi/Mihon extensions are Android code and mostly read from unofficial copies, so the app links to official readers instead.
+- Danbooru fan art is left out because the site has adult content.
+- The Marvel developer API isn't used (its status couldn't be confirmed). Comic Vine covers Marvel comics, and the Superheroes tab links to Marvel's own free issues.
+- Website traffic figures are not shown: there is no trustworthy free source.
+- The reader, comic reader, book page, volume view and loading screens take ideas from Colosseum (github.com/kingoftheseas56/Colosseum, MIT licence). Colosseum's download sources (LibGen, AudioBookBay, Nyaa, GetComics and torrent extensions) are not used: they share copies without the rights to them.
+- **Converting, like Calibre but in the browser.** A CBR comic becomes a CBZ, and a MOBI, AZW, AZW3 or PRC book becomes an EPUB, as it's added to Your files. Nothing is uploaded. The converted file can be saved from the file's menu to use in other readers. Books locked with DRM are refused, not unlocked: read those in the shop's own app. CB7 comics, DjVu and KFX files still need the Calibre desktop app first.
+- RAR files are opened with node-unrar-js (MIT), kept in `vendor/` and loaded only when a CBR is added.
+
+## Next
+
+Accounts, friends, shared suggestions and a shared, checked list of where to read and watch, using Supabase. The plan is in `docs/discovery-plan.md` and the steps are in `docs/SETUP-AND-HANDOVER.md`.

@@ -1,0 +1,25 @@
+# Zenkai Tankoyomi preview (EN + FR)
+
+A modified copy of Zenkai Batch 12 with an added source finder at `/sources.html`. On each manga's Chapters panel there is a **Find more chapters · English / Français** link. It searches five Colosseum Tankoyomi providers using a Netlify serverless function and opens pages in a browser reader.
+
+## Sources
+- English: WeebCentral
+- French: Sushiscan.fr, Lelscan-VF, Lelmanga, MangaMoins
+
+## Deploy
+1. Extract ZIP and upload the `Zenkai-Media-main` contents as a GitHub repository (preserving `netlify/functions`).
+2. Deploy this repository with Netlify's Git integration, NOT only a drag-and-drop static deployment. The new `/api/tankoyomi` endpoint requires Netlify Functions.
+3. Open `/sources.html` or a manga's Chapters panel.
+4. Search a title, pick a series and chapter, then test a page. Some sources may reject hosting-network traffic or images, or change their HTML.
+
+## Limitations
+- NOT live-verified: functionality depends on upstream sources and their access policies.
+- Chapter reading in this prototype is a **separate reader page**; it does not yet save reading progress to Zenkai's existing collection state.
+- No paywall/CAPTCHA/authentication bypass, and no attempts to defeat image access restrictions.
+- An unsupported or broken provider will give an error, not silently try unauthorised mirrors.
+- Images may fail due to anti-hotlinking; no image-proxy workaround is included.
+- The `mangadex` 500-limit pagination issue is independent and is not modified in this source-preview build.
+- Always check whether you have permission to access, display and reuse the content, even if the project is private.
+
+## Credit
+Colosseum provider parsers adapted under MIT licence. See `COLOSSEUM-LICENSE.txt`.

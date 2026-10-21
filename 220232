@@ -1,0 +1,83 @@
+// Zenkai Media calendar feed.
+// Your phone's calendar (Google Calendar, iPhone, Outlook) subscribes to this address and checks it
+// every few hours, so new episodes from your list show up on their own, at the right time.
+// The address only holds the numbers of the shows you follow (AniList and TMDB ids), nothing personal.
+
+const ids = (v, max, lim) => [...new Set(String(v || "").split(",").map(Number).filter(n => Number.isInteger(n) && n > 0 && n < lim))].slice(0, max);
+const esc = s => String(s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/([,;])/g, "\\$1");
+const stamp = d => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+const day = s => String(s || "").replace(/-/g, "");
+// Lines longer than 75 characters are folded, as the calendar format asks
+const fold = line => { const out = []; let s = line; while (s.length > 74) { out.push(s.slice(0, 74)); s = " " + s.slice(74); } out.push(s); return out.join("\r\n"); };
+
+async function anilist(list) {
+  const out = [];
+  for (let i = 0; i < list.length; i += 50) {
+    const q = `query($ids:[Int]){Page(perPage:50){media(id_in:$ids,type:ANIME){id title{english romaji} duration airingSchedule(notYetAired:true,perPage:8){nodes{airingAt episode}}}}}`;
+    try {
+      const r = await fetch("https://graphql.anilist.co", { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ query: q, variables: { ids: list.slice(i, i + 50) } }), signal: AbortSignal.timeout(6000) });
+      const d = await r.json();
+      for (const m of d?.data?.Page?.media || []) {
+        const title = m.title?.english || m.title?.romaji || "Anime";
+        for (const n of m.airingSchedule?.nodes || []) out.push({
+          uid: `al-${m.id}-${n.episode}@zenkaimedia`, start: new Date(n.airingAt * 1000), mins: Math.min(180, Math.max(5, m.duration || 24)),
+          title: `${title} · Episode ${n.episode}`, url: `https://zenkaimedia.netlify.app/#/view/anilist/anime/${m.id}`,
+        });
+      }
+    } catch (e) {}
+  }
+  return out;
+}
+async function tmdb(path, key) {
+  const bearer = key.startsWith("eyJ"), u = new URL("https://api.themoviedb.org/3" + path);
+  if (!bearer) u.searchParams.set("api_key", key);
+  const r = await fetch(u, { headers: bearer ? { Authorization: "Bearer " + key } : {}, signal: AbortSignal.timeout(5000) });
+  if (!r.ok) throw new Error("tmdb");
+  return r.json();
+}
+async function shows(tv, films, key) {
+  if (!key) return [];
+  const out = [], today = new Date().toISOString().slice(0, 10);
+  await Promise.all([
+    ...tv.map(async id => { try {
+      const d = await tmdb(`/tv/${id}`, key), n = d.next_episode_to_air;
+      if (n?.air_date && n.air_date >= today) out.push({ uid: `tv-${id}-${n.season_number}-${n.episode_number}@zenkaimedia`, allDay: n.air_date,
+        title: `${d.name} · S${n.season_number} E${n.episode_number}${n.name && !/^Episode \d+$/.test(n.name) ? `: ${n.name}` : ""}`, url: `https://zenkaimedia.netlify.app/#/view/tmdb/tv/${id}` });
+    } catch (e) {} }),
+    ...films.map(async id => { try {
+      const d = await tmdb(`/movie/${id}`, key);
+      if (d.release_date && d.release_date >= today) out.push({ uid: `mv-${id}@zenkaimedia`, allDay: d.release_date, title: `${d.title} comes out`, url: `https://zenkaimedia.netlify.app/#/view/tmdb/movie/${id}` });
+    } catch (e) {} }),
+  ]);
+  return out;
+}
+
+export default async (req) => {
+  const u = new URL(req.url);
+  const al = ids(u.searchParams.get("al"), 100, 1e7), tv = ids(u.searchParams.get("tv"), 40, 1e8), mv = ids(u.searchParams.get("mv"), 30, 1e8);
+  const name = String(u.searchParams.get("name") || "").replace(/[^\p{L}\p{N} '-]/gu, "").slice(0, 30);
+  const key = (Netlify.env.get("TMDB_KEY") || "").trim();
+  const [a, b] = await Promise.all([anilist(al), shows(tv, mv, key)]);
+  const now = stamp(new Date());
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Zenkai Media//Calendar//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    `X-WR-CALNAME:${esc(name ? `${name}'s Zenkai Media` : "Zenkai Media")}`, "X-WR-CALDESC:New episodes and releases from your Zenkai Media list", "REFRESH-INTERVAL;VALUE=DURATION:PT6H", "X-PUBLISHED-TTL:PT6H"];
+  for (const e of [...a, ...b]) {
+    lines.push("BEGIN:VEVENT", `UID:${e.uid}`, `DTSTAMP:${now}`);
+    if (e.allDay) { const d = new Date(e.allDay + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1); lines.push(`DTSTART;VALUE=DATE:${day(e.allDay)}`, `DTEND;VALUE=DATE:${day(d.toISOString().slice(0, 10))}`); }
+    else lines.push(`DTSTART:${stamp(e.start)}`, `DTEND:${stamp(new Date(e.start.getTime() + e.mins * 60000))}`);
+    lines.push(`SUMMARY:${esc(e.title)}`, `URL:${e.url}`, `DESCRIPTION:${esc("Open it in Zenkai Media: " + e.url)}`,
+      "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc(e.title)}`, "TRIGGER:-PT10M", "END:VALARM", "END:VEVENT");
+  }
+  lines.push("END:VCALENDAR");
+  return new Response(lines.map(fold).join("\r\n") + "\r\n", {
+    headers: {
+      "content-type": "text/calendar; charset=utf-8",
+      "content-disposition": 'inline; filename="zenkai-media.ics"',
+      "cache-control": "public, max-age=1800",
+      "netlify-cdn-cache-control": "public, durable, s-maxage=10800, stale-while-revalidate=86400",
+      "netlify-vary": "query",
+    },
+  });
+};
+
+export const config = { path: "/api/calendar" };

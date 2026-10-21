@@ -1,0 +1,84 @@
+// Zenkai Tankoyomi source adapter. Adapted from Colosseum (MIT licence).
+// These are third-party public-page parsers; availability can change at any time.
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const PROVIDERS = Object.freeze({
+  weebcentral: {lang:'en', host:'weebcentral.com'},
+  'sushiscan-fr': {lang:'fr', host:'sushiscan.fr'},
+  'lelscan-vf': {lang:'fr', host:'lelscanfr.com'},
+  lelmanga: {lang:'fr', host:'lelmanga.com'},
+  mangamoins: {lang:'fr', host:'mangamoins.com'},
+});
+const MODULES = {
+  weebcentral: require('./tankoyomi-providers/weebcentral.cjs'),
+  'sushiscan-fr': require('./tankoyomi-providers/sushiscan-fr.cjs'),
+  'lelscan-vf': require('./tankoyomi-providers/lelscan-vf.cjs'),
+  lelmanga: require('./tankoyomi-providers/lelmanga.cjs'),
+  mangamoins: require('./tankoyomi-providers/mangamoins.cjs')
+};
+const MAX_HTML = 3 * 1024 * 1024;
+const MAX_RESULTS = 1500;
+const headers = {'content-type':'application/json; charset=utf-8','cache-control':'public, max-age=60'};
+const send = (data,status=200) => new Response(JSON.stringify(data),{status,headers});
+const safeURL = (value, host) => {
+  const u = new URL(value);
+  if (u.protocol !== 'https:' || u.hostname !== host || u.username || u.password || u.port) throw new Error('Source URL not permitted');
+  return u;
+};
+async function fetchText(url, options, host) {
+  let next = safeURL(url, host);
+  for (let i=0; i<3; i++) {
+    const controller = new AbortController();
+    const t = setTimeout(()=>controller.abort(),Math.min(12000,Number(options?.timeoutMs)||12000));
+    let r;
+    try { r=await fetch(next,{redirect:'manual',signal:controller.signal,headers:{accept:'text/html,text/plain,*/*;q=0.5','user-agent':'ZenkaiMedia/1.0',...(options?.headers?.['HX-Request'] ? {'HX-Request':'true','HX-Target':'search-results'} : {})}}); }
+    finally { clearTimeout(t); }
+    if ([301,302,303,307,308].includes(r.status)) {
+      const location = r.headers.get('location'); if(!location) throw new Error('Redirect without location');
+      next=safeURL(new URL(location,next).href,host); continue;
+    }
+    if (!r.ok) throw new Error(`Source HTTP ${r.status}`);
+    const size=Number(r.headers.get('content-length')||0); if(size>MAX_HTML) throw new Error('Source response too large');
+    const body=await r.text();if(body.length>MAX_HTML) throw new Error('Source response too large');
+    return body;
+  }
+  throw new Error('Too many redirects');
+}
+const cleanRecord = r => {
+  if (!r || typeof r !== 'object') return null;
+  const out={};
+  for(const k of ['id','title','label','number','url','source','language','index','thumbnail']) {
+    if (r[k] === null || typeof r[k] === 'string' || typeof r[k] === 'number') out[k]=r[k];
+  }
+  if(typeof out.url==='string' && !/^https:\/\//.test(out.url)) delete out.url;
+  return out;
+};
+export default async function handler(req) {
+  try {
+    if(req.method!=='GET') return send({error:'GET only'},405);
+    const p=new URL(req.url).searchParams;
+    const action=p.get('action')||'providers';
+    if(action==='providers') return send({providers:Object.entries(PROVIDERS).map(([id,x])=>({id,language:x.lang}))});
+    const id=p.get('provider');const setting=PROVIDERS[id];
+    if(!setting) return send({error:'Unknown source'},400);
+    const mod=MODULES[id];
+    const ctx={fetchText:(url,opt)=>fetchText(url,opt,setting.host)};
+    let data;
+    if(action==='search') {
+      const title=(p.get('q')||'').trim(); if(!title||title.length>120) return send({error:'Enter a short manga title'},400);
+      data=await mod.searchSeries(ctx,title);
+    } else if(action==='chapters') {
+      const url=p.get('url')||'';safeURL(url,setting.host);
+      const series={id:(p.get('id')||'').slice(0,250),url};
+      data=await mod.getChapters(ctx,series);
+    } else if(action==='pages') {
+      const url=p.get('url')||'';safeURL(url,setting.host);
+      const chapter={id:(p.get('id')||'').slice(0,250),url};
+      data=await mod.getPages(ctx,chapter);
+    } else return send({error:'Unknown action'},400);
+    if(!Array.isArray(data)) throw new Error('Unexpected provider response');
+    const items=data.slice(0,MAX_RESULTS).map(cleanRecord).filter(Boolean);
+    return send({provider:id,action,items});
+  } catch(e) {return send({error:String(e?.message||e).slice(0,200)},502);}
+}
+export const config={path:'/api/tankoyomi'};
