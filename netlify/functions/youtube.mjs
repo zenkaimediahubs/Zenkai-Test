@@ -34,6 +34,15 @@ export default async (req) => {
       cid ? get("channels", { part: "snippet,statistics,contentDetails,brandingSettings", id: cid }).then(r => r.ok ? r.json() : { items: [] }) : { items: [] },
       vid ? get("videos", { part: "snippet,statistics,contentDetails", id: vid }).then(r => r.ok ? r.json() : { items: [] }) : { items: [] }]);
     return json({ channels: cd.items || [], videos: vd.items || [] }, 200, { "cache-control": "public, max-age=3600", "netlify-cdn-cache-control": "public, durable, s-maxage=86400, stale-while-revalidate=86400", "netlify-vary": "query" });
+  } else if (op === "live") {
+    // Streams on right now. One search (100 units) plus one details call (1 unit), kept for 20 minutes so the daily allowance lasts.
+    const get = (p2, ps) => { const t = new URL("https://www.googleapis.com/youtube/v3/" + p2); for (const [k, v] of Object.entries(ps)) t.searchParams.set(k, v); t.searchParams.set("key", key); return fetch(t, { headers: { Accept: "application/json" } }); };
+    const cat = clip(u.searchParams.get("cat"), 3).replace(/\D/g, "");
+    const sr = await get("search", { part: "snippet", type: "video", eventType: "live", order: "viewCount", regionCode: region, maxResults: "24", safeSearch: "moderate", ...(cat ? { videoCategoryId: cat } : {}) });
+    if (!sr.ok) return json({ error: "youtube" }, sr.status === 403 ? 403 : 502, { "cache-control": "no-store" });
+    const ids = ((await sr.json()).items || []).map(x => x.id?.videoId).filter(Boolean).join(",");
+    const vd = ids ? await get("videos", { part: "snippet,statistics,contentDetails,liveStreamingDetails", id: ids }).then(r => r.ok ? r.json() : { items: [] }) : { items: [] };
+    return json({ items: vd.items || [] }, 200, { "cache-control": "public, max-age=1200", "netlify-cdn-cache-control": "public, durable, s-maxage=1200, stale-while-revalidate=600", "netlify-vary": "query" });
   } else if (op === "videos") {
     const id = clip(u.searchParams.get("id"), 600).replace(/[^\w,-]/g, ""); if (!id) return json({ items: [] });
     path = "videos"; params = { part: "snippet,statistics,contentDetails", id }; ttl = 21600;

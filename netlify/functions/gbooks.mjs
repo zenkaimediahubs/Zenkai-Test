@@ -19,6 +19,8 @@ export default async (req) => {
     target = new URL("https://www.googleapis.com/books/v1/volumes"); target.searchParams.set("q", q); target.searchParams.set("maxResults", String(Math.min(20, Number(u.searchParams.get("n")) || 12)));
     target.searchParams.set("printType", "books"); const start = Number(u.searchParams.get("start")) || 0; if (start) target.searchParams.set("startIndex", String(Math.min(400, start)));
     const lang = (u.searchParams.get("lang") || "").replace(/[^a-z]/g, "").slice(0, 2); if (lang) target.searchParams.set("langRestrict", lang);
+    if (u.searchParams.get("order") === "newest") target.searchParams.set("orderBy", "newest");
+    if (u.searchParams.get("free") === "1") target.searchParams.set("filter", "free-ebooks");
   } else if (op === "volume") {
     const id = (u.searchParams.get("id") || "").replace(/[^\w-]/g, "").slice(0, 20); if (!id) return json({ error: "No id" }, 400, false);
     target = new URL(`https://www.googleapis.com/books/v1/volumes/${id}`);

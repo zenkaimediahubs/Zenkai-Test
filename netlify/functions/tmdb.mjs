@@ -11,6 +11,7 @@ const ALLOWED = new RegExp("^/(" + [
   "tv/\\d+/(images|videos|aggregate_credits|external_ids)",
   "movie/\\d+(/(images|videos|credits))?",
   "collection/\\d+",
+  "find/tt\\d{5,10}",
   "movie/(upcoming|now_playing|popular|top_rated)",
   "tv/(on_the_air|airing_today|popular|top_rated)",
   "discover/(movie|tv)",
@@ -20,7 +21,7 @@ const ALLOWED = new RegExp("^/(" + [
 const PARAMS = ["query", "page", "language", "region", "include_adult", "append_to_response", "include_image_language",
   "sort_by", "with_genres", "without_genres", "with_original_language", "primary_release_date.gte", "primary_release_date.lte",
   "first_air_date.gte", "first_air_date.lte", "air_date.gte", "air_date.lte", "vote_count.gte", "with_release_type",
-  "primary_release_year", "first_air_date_year", "year", "vote_average.gte", "with_keywords", "with_origin_country", "watch_region"];
+  "primary_release_year", "first_air_date_year", "year", "vote_average.gte", "with_keywords", "with_origin_country", "watch_region", "external_source"];
 
 const json = (body, status = 200, extra = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...extra } });

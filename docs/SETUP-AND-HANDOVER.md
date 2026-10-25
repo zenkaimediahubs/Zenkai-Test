@@ -1,6 +1,6 @@
 # Zenkai Media: setup and handover, step by step
 
-For whoever is taking over the hosting. Written 21 October 2026. The app's version label is **Batch 18**.
+For whoever is taking over the hosting. Written 21 October 2026. The app's version label is **Batch 20**.
 
 The order matters: GitHub first (it holds the code), then Netlify (it publishes the code from GitHub and runs the helpers), then the keys, then a test, then Supabase later.
 
@@ -18,7 +18,7 @@ What you need before you start: an email address you can open, and a password ma
    - In the main folder: `index.html`, `README.md`, `manifest.webmanifest`, `sw.js`, `icon-192.png`, `icon-512.png`, `icon-maskable.png`.
    - In `vendor/`: `unrar.js`, `unrar.wasm`, `node-unrar-js-LICENSE.md` and `README.md` (used to convert CBR comics).
    - In `netlify/functions/`: every `.mjs` file (`archive`, `audiosilo`, `brawlify`, `calendar`, `charts`, `comicvine`, `fanart`, `gbooks`, `gutenberg`, `img`, `librivox`, `mangadex`, `ost`, `tmdb`, `wallhaven`, `where`, `wiki`, `youtube`).
-   - In `docs/`: `discovery-plan.md` and `SETUP-AND-HANDOVER.md`.
+   - In `docs/`: every `.md` file (`SETUP-AND-HANDOVER.md`, `KEYS-CHECKLIST.md`, `next-batch.md`, `discovery-plan.md`, `design-review.md`).
    - Dragging a whole folder into the upload page keeps its folder name. If only some files are in the zip you were sent, upload the older files from the current repository too, because the helpers that did not change this round still need to be there.
 6. At the bottom, write a message such as "Zenkai Media, Batch 15" and click **Commit changes**.
 7. To give someone else access: repository **Settings → Collaborators → Add people** (write access).
@@ -46,6 +46,8 @@ Rules for GitHub: never upload a key, a `.env` file or a password. Old files nam
 ## Part 3. The keys: where to get each one and where to put it
 
 Put each key in **Netlify → Project configuration → Environment variables → Add a variable**, using the exact name below. After adding or changing a key, go to **Deploys → Trigger deploy** so the helpers pick it up.
+
+A checklist of every variable, which deploy contexts need it and how to check each one safely is in `docs/KEYS-CHECKLIST.md`.
 
 ### TMDB (required): `TMDB_KEY`
 Used for films, shows, episodes and where to watch.
@@ -81,6 +83,13 @@ Used for comic issues, series and creators.
 2. Copy the API key shown on that page.
 3. Put it in Netlify as `COMICVINE_KEY`. It is limited to a few hundred requests an hour.
 
+### Google Books (optional): `GOOGLE_BOOKS_KEY`
+Used for book search, ISBN lookups and summaries Open Library doesn't have. It works without a key, at a lower daily limit.
+1. In the same Google Cloud project as the YouTube key, open **APIs & Services → Library**, search **Books API** and click **Enable**.
+2. Use an API key from **Credentials** (the YouTube one can be reused if you add Books API to its allowed APIs).
+3. Put it in Netlify as `GOOGLE_BOOKS_KEY` (the helper also accepts `GOOGLE_BOOKS_API_KEY` or `GOOGLE_API_KEY` if you already used one of those names), scope **Functions**, then redeploy.
+4. Check: open `/api/gbooks?op=status` on your site. It names the variable it found, never the value.
+
 ### No key needed
 AniList (anime and manga data), Jikan and Kitsu (anime, used as backups), Cinemeta (films and series, used as a backup), Audiosilo (audiobook narrators), LRCLIB (lyrics), MangaDex, Open Library, Internet Archive, Project Gutenberg, Apple Music search, LibriVox, MangaBaka, AnimeThemes, Odesli, Wallhaven and Fandom wikis. There is nothing to sign up for. AnimeKai and similar sites are unofficial streaming sites and are not used in this app.
 
@@ -103,7 +112,7 @@ Then open the site and check:
 2. Search for an anime. Look for Where to watch, and Openings and endings.
 3. Search for a manga. Look for Where to read.
 4. Type in the search box. A keyboard click plays (Settings → Sound → Keyboard clicks while you type turns it off).
-5. Settings → About and credits says **Batch 18**.
+5. Settings → About and credits says **Batch 20**.
 6. Open Your files (sidebar, or the link on the Library page), add a CBZ or EPUB, and check it opens. Then add a CBR comic and a MOBI book: they should say "Converted from CBR" and "Converted from MOBI".
 
 Several services have not been tested against their live answers from the development environment: MangaBaka, AnimeThemes, Odesli, Jikan, Kitsu, Cinemeta and Audiosilo. If checks 1 to 3 on the lists above show an error, open the helper's log in Netlify (**Logs → Functions**) and send it with a screenshot. Also read each service's terms and rate limits yourself before a wider launch.
